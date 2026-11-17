@@ -8,3 +8,4 @@ build/
 *.sqlite
 app/lib/data/database.g.dart
 *.log
+.vscode/
