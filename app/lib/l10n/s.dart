@@ -44,6 +44,9 @@ class S {
     "todoAllTooltip": "À faire : tous les items non cochés",
     "newList": "Nouvelle liste",
     "newTask": "Nouvelle tâche",
+    "setDefaultList": "Liste par défaut (cet appareil)",
+    "unsetDefaultList": "Ne plus être la liste par défaut",
+    "defaultList": "Liste par défaut sur cet appareil",
     "newTaskHint": "Que faut-il faire ? (1 ligne = 1 tâche)",
     "emptyList": "Liste vide",
     "listTitleFallback": "Liste",
@@ -245,6 +248,9 @@ class S {
     "todoAllTooltip": "To do: all unchecked items",
     "newList": "New list",
     "newTask": "New task",
+    "setDefaultList": "Default list (this device)",
+    "unsetDefaultList": "Stop being the default list",
+    "defaultList": "Default list on this device",
     "newTaskHint": "What needs doing? (1 line = 1 task)",
     "emptyList": "Empty list",
     "listTitleFallback": "List",
@@ -455,6 +461,9 @@ class S {
   static String get todoAllTooltip => t("todoAllTooltip");
   static String get newList => t("newList");
   static String get newTask => t("newTask");
+  static String get setDefaultList => t("setDefaultList");
+  static String get unsetDefaultList => t("unsetDefaultList");
+  static String get defaultList => t("defaultList");
   static String get newTaskHint => t("newTaskHint");
   static String get emptyList => t("emptyList");
   static String get listTitleFallback => t("listTitleFallback");

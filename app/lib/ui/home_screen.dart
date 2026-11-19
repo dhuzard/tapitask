@@ -88,12 +88,12 @@ class _HomeScreenState extends State<HomeScreen> {
       await _promptNewList();
     } else {
       final pinned = await widget.state.db.pinnedLists();
-      final fallback = pinned.isNotEmpty ? pinned.first : lists.first;
+      final target = widget.state.addTargetAmong(lists, pinned: pinned)!;
       if (!mounted) return;
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => ListScreen(state: widget.state, listId: fallback.id),
+          builder: (_) => ListScreen(state: widget.state, listId: target),
         ),
       );
     }
@@ -315,9 +315,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _promptNewTask(List<LocalList> lists) async {
     final pinned = await widget.state.db.pinnedLists();
     if (!mounted) return;
-    final initial = lists.any((l) => l.id == _lastTaskListId)
-        ? _lastTaskListId!
-        : (pinned.isNotEmpty ? pinned.first.id : lists.first.id);
+    final initial = widget.state
+        .addTargetAmong(lists, fallback: _lastTaskListId, pinned: pinned)!;
     final result = await showDialog<_NewTask>(
       context: context,
       builder: (_) => _NewTaskDialog(lists: lists, initialListId: initial),
@@ -666,6 +665,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         title: Row(children: [
+          if (state.defaultListId == list.id)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Tooltip(
+                message: S.defaultList,
+                child: Icon(Icons.star, size: 14, color: scheme.primary),
+              ),
+            ),
           if (list.pinned)
             Padding(
               padding: const EdgeInsets.only(right: 4),
@@ -713,6 +720,10 @@ class _HomeScreenState extends State<HomeScreen> {
               case "pin":
                 state.pinList(list.id, !list.pinned);
                 break;
+              case "default":
+                state.setDefaultList(
+                    state.defaultListId == list.id ? null : list.id);
+                break;
               case "rename":
                 _renameList(list);
                 break;
@@ -749,6 +760,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icon(list.pinned ? Icons.push_pin_outlined : Icons.push_pin),
                 const SizedBox(width: 12),
                 Text(list.pinned ? S.unpin : S.pin),
+              ]),
+            ),
+            PopupMenuItem(
+              value: "default",
+              child: Row(children: [
+                Icon(state.defaultListId == list.id
+                    ? Icons.star
+                    : Icons.star_border),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(state.defaultListId == list.id
+                      ? S.unsetDefaultList
+                      : S.setDefaultList),
+                ),
               ]),
             ),
             PopupMenuItem(

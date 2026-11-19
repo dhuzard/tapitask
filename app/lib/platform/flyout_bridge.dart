@@ -38,7 +38,11 @@ class FlyoutBridge {
       if (ids.join(",") != _lastLists.join(",")) {
         _lastLists = ids;
         if (_activeList == null || !ids.contains(_activeList)) {
-          _activeList = ids.isEmpty ? null : ids.first;
+          // Liste par défaut de l'appareil si elle est épinglée.
+          final dflt = state.defaultListId;
+          _activeList = dflt != null && ids.contains(dflt)
+              ? dflt
+              : (ids.isEmpty ? null : ids.first);
           _resubscribeItems();
         }
       }

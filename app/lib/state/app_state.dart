@@ -83,6 +83,7 @@ class AppState extends ChangeNotifier {
   /// instant and only reads/writes the local database.
   Future<void> init({bool lightweight = false}) async {
     api = await ApiClient.load();
+    await _loadDefaultList();
     sync = SyncService(
         api: api, db: db, onChanged: notifyListeners, onSynced: _refreshWidget);
     if (lightweight) {
@@ -279,6 +280,49 @@ class AppState extends ChangeNotifier {
     if (d == today.add(const Duration(days: 1))) return S.t("tomorrow");
     if (d.isBefore(today)) return S.t("overdueSuffix").trim();
     return "${d.day}/${d.month}";
+  }
+
+  // ---- Liste par défaut (propre à l'appareil, non synchronisée) ----
+
+  static const _defaultListPref = "default_list_id";
+
+  /// Liste présélectionnée pour l'ajout d'une tâche sur CET appareil
+  /// (dialogue « Nouvelle tâche », widget d'ajout rapide, volet Windows).
+  String? defaultListId;
+
+  Future<void> _loadDefaultList() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      defaultListId = prefs.getString(_defaultListPref);
+    } catch (_) {}
+  }
+
+  /// [id] null = aucune liste par défaut.
+  Future<void> setDefaultList(String? id) async {
+    defaultListId = id;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (id == null) {
+        await prefs.remove(_defaultListPref);
+      } else {
+        await prefs.setString(_defaultListPref, id);
+      }
+    } catch (_) {}
+  }
+
+  /// Liste cible d'un nouvel ajout parmi [lists] : la liste par défaut si
+  /// elle existe encore, sinon [fallback] (si présent dans [lists]), sinon
+  /// la 1re épinglée, sinon la 1re. Null si [lists] est vide.
+  String? addTargetAmong(List<dynamic> lists,
+      {String? fallback, List<dynamic> pinned = const []}) {
+    bool has(String? id) => id != null && lists.any((l) => l.id == id);
+    if (has(defaultListId)) return defaultListId;
+    if (has(fallback)) return fallback;
+    for (final p in pinned) {
+      if (has(p.id as String)) return p.id as String;
+    }
+    return lists.isEmpty ? null : lists.first.id as String;
   }
 
   // ---- Flyout pin (native Win32 popup) ----

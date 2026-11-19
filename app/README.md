@@ -121,7 +121,6 @@ lib/
 └── ui/
     ├── home_screen.dart       # listes + épinglage
     ├── list_screen.dart       # items + ajout rapide multi-lignes
-    ├── tray_panel.dart        # volet systray
     └── login_screen.dart      # compte + URL serveur
 ```
 

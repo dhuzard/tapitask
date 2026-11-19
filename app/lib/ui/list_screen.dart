@@ -262,8 +262,26 @@ class _ListScreenState extends State<ListScreen> {
                 if (action == "color") await _pickColor(list);
                 if (action == "clean") await _confirmPurgeDone();
                 if (action == "share") await _openShare();
+              if (action == "default") {
+                await widget.state.setDefaultList(
+                    widget.state.defaultListId == list.id ? null : list.id);
+              }
               },
               itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: "default",
+                  child: Row(children: [
+                    Icon(widget.state.defaultListId == widget.listId
+                        ? Icons.star
+                        : Icons.star_border),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(widget.state.defaultListId == widget.listId
+                          ? S.unsetDefaultList
+                          : S.setDefaultList),
+                    ),
+                  ]),
+                ),
                 PopupMenuItem(
                   value: "share",
                   child: Row(children: [
