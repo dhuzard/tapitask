@@ -113,10 +113,7 @@ class TrayController {
         for (final list in pinned) {
           remaining += (await state.db.uncheckedItemsOf(list.id)).length;
         }
-        var due = 0;
-        if (state.featureDueDates) {
-          due = (await state.db.dueItems()).length;
-        }
+        final due = (await state.db.dueItems()).length;
         final badge = [
           if (remaining > 0) "$remaining à faire",
           if (due > 0) "$due aujourd'hui",

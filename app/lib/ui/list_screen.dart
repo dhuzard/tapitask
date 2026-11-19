@@ -461,23 +461,22 @@ class _ListScreenState extends State<ListScreen> {
                                   ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        if (state.featureDueDates)
-                                          IconButton(
-                                            tooltip: item.dueDate == null
-                                                ? S.setDueDate
-                                                : S.editDueDate,
-                                            icon: Icon(
-                                              item.dueDate == null
-                                                  ? Icons.event_outlined
-                                                  : Icons.event,
-                                              size: 20,
-                                              color: item.dueDate == null
-                                                  ? scheme.outline
-                                                  : scheme.primary,
-                                            ),
-                                            onPressed: () =>
-                                                _pickDueDate(item),
+                                        IconButton(
+                                          tooltip: item.dueDate == null
+                                              ? S.setDueDate
+                                              : S.editDueDate,
+                                          icon: Icon(
+                                            item.dueDate == null
+                                                ? Icons.event_outlined
+                                                : Icons.event,
+                                            size: 20,
+                                            color: item.dueDate == null
+                                                ? scheme.outline
+                                                : scheme.primary,
                                           ),
+                                          onPressed: () =>
+                                              _pickDueDate(item),
+                                        ),
                                         IconButton(
                                           tooltip: S.itemActions,
                                           icon: Icon(Icons.more_vert,
@@ -537,17 +536,16 @@ class _ListScreenState extends State<ListScreen> {
             title: Text(S.addSubtask),
             onTap: () => Navigator.pop(context, "subtask"),
           ),
-          if (state.featureDueDates)
-            ListTile(
-              leading: Icon(Icons.event,
-                  color: item.dueDate != null
-                      ? Theme.of(context).colorScheme.primary
-                      : null),
-              title: Text(item.dueDate == null
-                  ? "Définir une échéance"
-                  : "Échéance : ${_dueLabel(item.dueDate!)}"),
-              onTap: () => Navigator.pop(context, "due"),
-            ),
+          ListTile(
+            leading: Icon(Icons.event,
+                color: item.dueDate != null
+                    ? Theme.of(context).colorScheme.primary
+                    : null),
+            title: Text(item.dueDate == null
+                ? S.setDueDate
+                : "${S.dueDate} : ${_dueLabel(item.dueDate!)}"),
+            onTap: () => Navigator.pop(context, "due"),
+          ),
           ListTile(
             leading: Icon(Icons.notes_outlined,
                 color: item.notes != null
@@ -725,7 +723,7 @@ class _ListScreenState extends State<ListScreen> {
 
   Widget? _itemSubtitle(LocalItem item) {
     final parts = <Widget>[];
-    if (widget.state.featureDueDates && item.dueDate != null) {
+    if (item.dueDate != null) {
       final overdue = item.dueDate!.isBefore(DateTime.now());
       parts.add(Text(
           (overdue ? "⚠ " : "📅 ") + _dueLabel(item.dueDate!),

@@ -21,7 +21,7 @@ Client Windows (icône systray + volet rapide), Android (widgets d'écran d'accu
 ## Pourquoi Tapitask
 
 - **Instantané** : chaque action s'applique localement (SQLite) puis se synchronise en arrière-plan. Pas de spinner, jamais.
-- **Minimaliste ou complet** : chaque utilisateur active les fonctions qu'il veut (échéances, dossiers, alertes, templates) — synchronisées entre tous ses appareils.
+- **Minimaliste ou complet** : chaque utilisateur active les fonctions qu'il veut (dossiers, alertes, templates — les échéances sont toujours disponibles) — synchronisées entre tous ses appareils.
 - **Présent partout** : volet rapide dans la barre des tâches Windows, widgets Android (liste cochable + ajout rapide 1×1), webapp.
 - **Partage** : invitations par code ou email, rôles viewer / editor / owner, dossiers partageables.
 - **Auto-hébergé** : votre serveur, vos données, Docker Compose, HTTPS via votre reverse proxy (ou Caddy intégré).

@@ -371,12 +371,11 @@ class _HomeScreenState extends State<HomeScreen> {
               tooltip: S.todoAllTooltip,
               onPressed: () => Navigator.pushNamed(context, "/todo"),
             ),
-            if (state.featureDueDates)
-              IconButton(
-                icon: const Icon(Icons.today_outlined),
-                tooltip: S.today,
-                onPressed: () => Navigator.pushNamed(context, "/today"),
-              ),
+            IconButton(
+              icon: const Icon(Icons.today_outlined),
+              tooltip: S.today,
+              onPressed: () => Navigator.pushNamed(context, "/today"),
+            ),
             IconButton(
               icon: const Icon(Icons.search),
               tooltip: S.search,

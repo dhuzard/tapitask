@@ -273,10 +273,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
-                _switchRow(S.dueDates, flag("due_dates", dflt: true),
-                    (v) => _toggle("due_dates", v),
-                    info: S.dueDatesHelp),
-                _divider(),
                 _switchRow(S.folders, flag("folders", dflt: true),
                     (v) => _toggle("folders", v)),
                 _divider(),
@@ -288,8 +284,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     (v) => _toggle("templates", v),
                     info: S.templatesHelp),
                 _divider(),
-                _switchRow(S.visibleActions, flag("item_actions", dflt: true),
-                    (v) => _toggle("item_actions", v),
+                _switchRow(S.visibleActions, flag("visible_actions", dflt: true),
+                    (v) => _toggle("visible_actions", v),
                     info: S.visibleActionsHelp),
               ],
             ),

@@ -35,7 +35,6 @@ class AppState extends ChangeNotifier {
 
   /// Per-user feature toggles (server-side, synced between devices).
   Map<String, dynamic> settings = {
-    "due_dates": false,
     "folders": false,
     "alerts": false,
     "templates": false,
@@ -56,7 +55,6 @@ class AppState extends ChangeNotifier {
   };
   final List<void Function()> _undoStack = [];
 
-  bool get featureDueDates => settings["due_dates"] == true;
   bool get featureFolders => settings["folders"] == true;
   bool get featureAlerts => settings["alerts"] == true;
   bool get featureTemplates => settings["templates"] == true;
@@ -271,7 +269,7 @@ class AppState extends ChangeNotifier {
   /// Localized due-date badge for compact surfaces (Windows flyout, Android
   /// widget), shown only if the user enabled it (settings["compact_due"]).
   String? dueSuffix(dynamic item) {
-    if (settings["compact_due"] != true) return null;
+    if (!compactDueDates) return null;
     final due = item.dueDate;
     if (due == null) return null;
     final now = DateTime.now();
