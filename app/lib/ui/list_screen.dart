@@ -20,6 +20,10 @@ class ListScreen extends StatefulWidget {
 class _ListScreenState extends State<ListScreen> {
   final _quickAdd = TextEditingController();
   String _recurrence = "none";
+
+  /// Échéance choisie pour le prochain ajout (puce « Échéance » de la zone
+  /// d'ajout). Null = aucune (les mots-clés « demain »… restent actifs).
+  DateTime? _newDue;
   String? _parentIdForNextAdd;
 
   @override
@@ -353,6 +357,32 @@ class _ListScreenState extends State<ListScreen> {
                             onPressed: () => setState(
                                 () => _parentIdForNextAdd = null),
                           ),
+                        Flexible(
+                          child: InputChip(
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            avatar: Icon(
+                                _newDue == null
+                                    ? Icons.event_outlined
+                                    : Icons.event,
+                                size: 18,
+                                color: _newDue == null
+                                    ? scheme.outline
+                                    : scheme.primary),
+                            label: Text(
+                              _newDue == null
+                                  ? S.dueDate
+                                  : _dueLabel(_newDue!),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            tooltip: S.setDueDate,
+                            onPressed: _pickNewDue,
+                            onDeleted: _newDue == null
+                                ? null
+                                : () => setState(() => _newDue = null),
+                          ),
+                        ),
                         const Spacer(),
                         DropdownButton<String>(
                           value: _recurrence,
@@ -574,17 +604,38 @@ class _ListScreenState extends State<ListScreen> {
   /// date/heure complet si besoin. Aussi accessible via l'icône
   /// calendrier sur chaque item (pas besoin d'un appui long).
   Future<void> _pickDueDate(LocalItem item) async {
+    final choice = await _chooseDueDate(item.label, item.dueDate);
+    if (choice == null || !mounted) return;
+    if (choice.date == null) {
+      await widget.state.setItemDetails(item.id, clearDue: true);
+    } else {
+      await widget.state.setItemDetails(item.id, dueDate: choice.date);
+    }
+  }
+
+  /// Échéance de la tâche en cours de saisie (zone d'ajout).
+  Future<void> _pickNewDue() async {
+    final title = _quickAdd.text.trim().split("\n").first;
+    final choice = await _chooseDueDate(
+        title.isEmpty ? S.dueDate : title, _newDue);
+    if (choice == null || !mounted) return;
+    setState(() => _newDue = choice.date);
+  }
+
+  /// Raccourcis en un tap puis sélecteur date/heure complet.
+  /// Retourne null si annulé ; `_DueChoice(null)` si l'échéance est retirée.
+  Future<_DueChoice?> _chooseDueDate(String title, DateTime? current) async {
     final now = DateTime.now();
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text("Échéance — ${item.label}",
+        title: Text("${S.dueDate} — $title",
             style: const TextStyle(fontSize: 16)),
         children: [
           SimpleDialogOption(
             child: ListTile(
               dense: true,
-              leading: Icon(Icons.today_outlined),
+              leading: const Icon(Icons.today_outlined),
               title: Text(S.today),
             ),
             onPressed: () => Navigator.pop(context, "today"),
@@ -592,7 +643,7 @@ class _ListScreenState extends State<ListScreen> {
           SimpleDialogOption(
             child: ListTile(
               dense: true,
-              leading: Icon(Icons.arrow_outward),
+              leading: const Icon(Icons.arrow_outward),
               title: Text(S.tomorrow),
             ),
             onPressed: () => Navigator.pop(context, "tomorrow"),
@@ -600,7 +651,7 @@ class _ListScreenState extends State<ListScreen> {
           SimpleDialogOption(
             child: ListTile(
               dense: true,
-              leading: Icon(Icons.date_range_outlined),
+              leading: const Icon(Icons.date_range_outlined),
               title: Text(S.inAWeek),
             ),
             onPressed: () => Navigator.pop(context, "week"),
@@ -608,16 +659,16 @@ class _ListScreenState extends State<ListScreen> {
           SimpleDialogOption(
             child: ListTile(
               dense: true,
-              leading: Icon(Icons.calendar_month_outlined),
+              leading: const Icon(Icons.calendar_month_outlined),
               title: Text(S.chooseDate),
             ),
             onPressed: () => Navigator.pop(context, "custom"),
           ),
-          if (item.dueDate != null)
+          if (current != null)
             SimpleDialogOption(
               child: ListTile(
                 dense: true,
-                leading: Icon(Icons.event_busy),
+                leading: const Icon(Icons.event_busy),
                 title: Text(S.removeDueDate),
               ),
               onPressed: () => Navigator.pop(context, "clear"),
@@ -625,44 +676,34 @@ class _ListScreenState extends State<ListScreen> {
         ],
       ),
     );
-    if (choice == null || !mounted) return;
+    if (choice == null || !mounted) return null;
     switch (choice) {
       case "today":
-        final d = DateTime(now.year, now.month, now.day, 18);
-        await widget.state.setItemDetails(item.id, dueDate: d);
-        return;
+        return _DueChoice(DateTime(now.year, now.month, now.day, 18));
       case "tomorrow":
-        final d = DateTime(now.year, now.month, now.day + 1, 9);
-        await widget.state.setItemDetails(item.id, dueDate: d);
-        return;
+        return _DueChoice(DateTime(now.year, now.month, now.day + 1, 9));
       case "week":
         final d = now.add(const Duration(days: 7));
-        await widget.state.setItemDetails(item.id,
-            dueDate: DateTime(d.year, d.month, d.day, 9));
-        return;
+        return _DueChoice(DateTime(d.year, d.month, d.day, 9));
       case "clear":
-        await widget.state.setItemDetails(item.id, clearDue: true);
-        return;
+        return const _DueChoice(null);
     }
-    if (!mounted) return;
     final picked = await showDatePicker(
       context: context,
-      initialDate: item.dueDate ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+      initialDate: current ?? now,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now.add(const Duration(days: 365 * 3)),
       helpText: S.dueDate,
     );
-    if (picked == null) return;
-    if (!mounted) return;
+    if (picked == null || !mounted) return null;
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(item.dueDate ?? DateTime.now()),
+      initialTime: TimeOfDay.fromDateTime(current ?? now),
     );
-    final due = DateTime(
+    return _DueChoice(DateTime(
       picked.year, picked.month, picked.day,
       time?.hour ?? 0, time?.minute ?? 0,
-    );
-    await widget.state.setItemDetails(item.id, dueDate: due);
+    ));
   }
 
   Future<void> _editNotes(LocalItem item) async {
@@ -765,7 +806,17 @@ class _ListScreenState extends State<ListScreen> {
       text,
       parentId: _parentIdForNextAdd,
       recurrence: _recurrence,
+      dueDate: _newDue,
     );
-    setState(() => _parentIdForNextAdd = null);
+    setState(() {
+      _parentIdForNextAdd = null;
+      _newDue = null;
+    });
   }
+}
+
+/// Résultat du sélecteur d'échéance : [date] null = échéance retirée.
+class _DueChoice {
+  final DateTime? date;
+  const _DueChoice(this.date);
 }

@@ -408,14 +408,17 @@ class AppState extends ChangeNotifier {
   /// Quick add: one line = one item. Optional recurrence / parent (sub-task).
   /// Parser: "demain" / "aujourd'hui" / "après-demain" / "lundi".."dimanche"
   /// set a due date, "#nomdelaliste" also adds the item to that list.
+  /// [dueDate] : échéance choisie explicitement (puce de la zone d'ajout).
+  /// Elle s'applique à chaque ligne et désactive les mots-clés de date,
+  /// pour ne pas retirer « lundi »… d'un libellé qui n'en est pas un.
   Future<void> addQuickItems(String listId, String text,
-      {String? parentId, String recurrence = "none"}) async {
+      {String? parentId, String recurrence = "none", DateTime? dueDate}) async {
     final lists = await db.visibleLists();
     for (final raw in text.split("\n")) {
       final line = raw.trim();
       if (line.isEmpty) continue;
       await _addParsedLine(listId, line, lists,
-          parentId: parentId, recurrence: recurrence);
+          parentId: parentId, recurrence: recurrence, dueDate: dueDate);
     }
     // offline-first: items go through the outbox on the next sync,
     // never through a direct POST (it created server-side duplicates).
@@ -457,14 +460,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _addParsedLine(String listId, String line, List<dynamic> lists,
-      {String? parentId, String recurrence = "none"}) async {
+      {String? parentId, String recurrence = "none", DateTime? dueDate}) async {
     var label = line;
-    DateTime? dueDate;
+    final explicitDue = dueDate != null;
     String? extraListId;
 
     // 1) Mots-clés personnels (réglages synchronisés) — le plus long d'abord.
-    final custom = dueKeywords.entries.toList()
-      ..sort((a, b) => b.key.length.compareTo(a.key.length));
+    // Ignorés si une échéance a été choisie explicitement.
+    final custom = explicitDue
+        ? <MapEntry<String, String>>[]
+        : (dueKeywords.entries.toList()
+          ..sort((a, b) => b.key.length.compareTo(a.key.length)));
     for (final entry in custom) {
       final word = entry.key.toLowerCase();
       final idx = label.toLowerCase().indexOf(word);
