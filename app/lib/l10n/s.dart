@@ -43,6 +43,8 @@ class S {
     "todoAll": "À faire",
     "todoAllTooltip": "À faire : tous les items non cochés",
     "newList": "Nouvelle liste",
+    "newTask": "Nouvelle tâche",
+    "newTaskHint": "Que faut-il faire ? (1 ligne = 1 tâche)",
     "emptyList": "Liste vide",
     "listTitleFallback": "Liste",
     "noList": "Aucune liste",
@@ -242,6 +244,8 @@ class S {
     "todoAll": "To do",
     "todoAllTooltip": "To do: all unchecked items",
     "newList": "New list",
+    "newTask": "New task",
+    "newTaskHint": "What needs doing? (1 line = 1 task)",
     "emptyList": "Empty list",
     "listTitleFallback": "List",
     "noList": "No list",
@@ -450,6 +454,8 @@ class S {
   static String get todoAll => t("todoAll");
   static String get todoAllTooltip => t("todoAllTooltip");
   static String get newList => t("newList");
+  static String get newTask => t("newTask");
+  static String get newTaskHint => t("newTaskHint");
   static String get emptyList => t("emptyList");
   static String get listTitleFallback => t("listTitleFallback");
   static String get noList => t("noList");

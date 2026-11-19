@@ -5,6 +5,7 @@ import "package:flutter/services.dart";
 
 import "../data/database.dart";
 import "../state/app_state.dart";
+import "due_picker.dart";
 import "share_screen.dart";
 import "../l10n/s.dart";
 
@@ -163,6 +164,7 @@ class _ListScreenState extends State<ListScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          titleSpacing: 0,
           title: FutureBuilder<List<LocalList>>(
             future: state.db.visibleLists(),
             builder: (context, snapshot) {
@@ -185,6 +187,7 @@ class _ListScreenState extends State<ListScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: S.prevList,
                     icon: const Icon(Icons.chevron_left, size: 22),
                     onPressed: index > 0
@@ -212,20 +215,30 @@ class _ListScreenState extends State<ListScreen> {
                             ]),
                           ),
                       ],
-                      child: Text(
-                        "${list?.title ?? "Liste"} ▾",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: list?.color == null
-                                ? scheme.onSurface
-                                : Color(int.parse(
-                                    list!.color!.replaceFirst("#", "0xFF"))),
-                            fontWeight: FontWeight.w600),
+                      // Le ▾ reste visible : seul le titre est tronqué.
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              list?.title ?? "Liste",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: list?.color == null
+                                      ? scheme.onSurface
+                                      : Color(int.parse(list!.color!
+                                          .replaceFirst("#", "0xFF"))),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 22),
+                        ],
                       ),
                     ),
                   ),
                   IconButton(
+                    visualDensity: VisualDensity.compact,
                     tooltip: S.nextList,
                     icon: const Icon(Icons.chevron_right, size: 22),
                     onPressed: index >= 0 && index < lists.length - 1
@@ -237,39 +250,6 @@ class _ListScreenState extends State<ListScreen> {
             },
           ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: S.cleanDone,
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text(S.cleanDoneConfirm),
-                    content: Text(S.cleanDoneBody),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text("Annuler")),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: Text(S.clean)),
-                    ],
-                  ),
-                );
-                if (confirmed == true) await state.purgeDone(widget.listId);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.share),
-              tooltip: S.share,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      ShareScreen(state: state, listId: widget.listId),
-                ),
-              ),
-            ),
             PopupMenuButton<String>(
               onSelected: (action) async {
                 final list = await _list();
@@ -280,8 +260,26 @@ class _ListScreenState extends State<ListScreen> {
                   await widget.state.setListLocalOnly(list.id, !list.localOnly);
                 }
                 if (action == "color") await _pickColor(list);
+                if (action == "clean") await _confirmPurgeDone();
+                if (action == "share") await _openShare();
               },
               itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: "share",
+                  child: Row(children: [
+                    const Icon(Icons.share),
+                    const SizedBox(width: 12),
+                    Text(S.share),
+                  ]),
+                ),
+                PopupMenuItem(
+                  value: "clean",
+                  child: Row(children: [
+                    const Icon(Icons.delete_sweep_outlined),
+                    const SizedBox(width: 12),
+                    Text(S.cleanDone),
+                  ]),
+                ),
                 PopupMenuItem(
                   value: "color",
                   child: Row(children: [
@@ -367,49 +365,71 @@ class _ListScreenState extends State<ListScreen> {
                               onPressed: () =>
                                   setState(() => _parentIdForNextAdd = null),
                             ),
-                          Flexible(
-                            child: InputChip(
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              avatar: Icon(
+                          // Expanded + Align : la puce prend sa taille naturelle
+                          // et ne se tronque que si la place manque.
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: InputChip(
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                avatar: Icon(
+                                    _newDue == null
+                                        ? Icons.event_outlined
+                                        : Icons.event,
+                                    size: 18,
+                                    color: _newDue == null
+                                        ? scheme.outline
+                                        : scheme.primary),
+                                label: Text(
                                   _newDue == null
-                                      ? Icons.event_outlined
-                                      : Icons.event,
-                                  size: 18,
-                                  color: _newDue == null
-                                      ? scheme.outline
-                                      : scheme.primary),
-                              label: Text(
-                                _newDue == null
-                                    ? S.dueDate
-                                    : _dueLabel(_newDue!),
-                                overflow: TextOverflow.ellipsis,
+                                      ? S.dueDate
+                                      : dueLabel(_newDue!),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                tooltip: S.setDueDate,
+                                onPressed: _pickNewDue,
+                                onDeleted: _newDue == null
+                                    ? null
+                                    : () => setState(() => _newDue = null),
                               ),
-                              tooltip: S.setDueDate,
-                              onPressed: _pickNewDue,
-                              onDeleted: _newDue == null
-                                  ? null
-                                  : () => setState(() => _newDue = null),
                             ),
                           ),
-                          const Spacer(),
-                          DropdownButton<String>(
-                            value: _recurrence,
-                            underline: const SizedBox.shrink(),
-                            isDense: true,
-                            items: [
-                              DropdownMenuItem(
-                                  value: "none", child: Text(S.noRepeat)),
-                              DropdownMenuItem(
-                                  value: "daily", child: Text(S.daily)),
-                              DropdownMenuItem(
-                                  value: "weekly", child: Text(S.weekly)),
-                              DropdownMenuItem(
-                                  value: "monthly", child: Text(S.monthly)),
-                            ],
-                            onChanged: (v) =>
-                                setState(() => _recurrence = v ?? "none"),
+                          // Flexible + isExpanded : le libellé se tronque au
+                          // lieu de déborder (petits écrans, grande police).
+                          Flexible(
+                            child: DropdownButton<String>(
+                              value: _recurrence,
+                              underline: const SizedBox.shrink(),
+                              isDense: true,
+                              isExpanded: true,
+                              alignment: AlignmentDirectional.centerEnd,
+                              items: [
+                                for (final r in const [
+                                  "none",
+                                  "daily",
+                                  "weekly",
+                                  "monthly",
+                                ])
+                                  DropdownMenuItem(
+                                    value: r,
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: Text(
+                                      switch (r) {
+                                        "daily" => S.daily,
+                                        "weekly" => S.weekly,
+                                        "monthly" => S.monthly,
+                                        _ => S.noRepeat,
+                                      },
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => _recurrence = v ?? "none"),
+                            ),
                           ),
                         ],
                       ),
@@ -563,7 +583,6 @@ class _ListScreenState extends State<ListScreen> {
   }
 
   Future<void> _itemActions(LocalItem item) async {
-    final state = widget.state;
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -580,7 +599,7 @@ class _ListScreenState extends State<ListScreen> {
                     : null),
             title: Text(item.dueDate == null
                 ? S.setDueDate
-                : "${S.dueDate} : ${_dueLabel(item.dueDate!)}"),
+                : "${S.dueDate} : ${dueLabel(item.dueDate!)}"),
             onTap: () => Navigator.pop(context, "due"),
           ),
           ListTile(
@@ -610,8 +629,38 @@ class _ListScreenState extends State<ListScreen> {
   /// Échéance ergonomique : raccourcis en un tap, puis sélecteur
   /// date/heure complet si besoin. Aussi accessible via l'icône
   /// calendrier sur chaque item (pas besoin d'un appui long).
+  Future<void> _openShare() async {
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ShareScreen(state: widget.state, listId: widget.listId),
+      ),
+    );
+  }
+
+  /// Confirme puis supprime les items cochés de la liste (menu ⋮).
+  Future<void> _confirmPurgeDone() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(S.cleanDoneConfirm),
+        content: Text(S.cleanDoneBody),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Annuler")),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(S.clean)),
+        ],
+      ),
+    );
+    if (confirmed == true) await widget.state.purgeDone(widget.listId);
+  }
+
   Future<void> _pickDueDate(LocalItem item) async {
-    final choice = await _chooseDueDate(item.label, item.dueDate);
+    final choice = await chooseDueDate(context, item.label, item.dueDate);
     if (choice == null || !mounted) return;
     if (choice.date == null) {
       await widget.state.setItemDetails(item.id, clearDue: true);
@@ -623,97 +672,10 @@ class _ListScreenState extends State<ListScreen> {
   /// Échéance de la tâche en cours de saisie (zone d'ajout).
   Future<void> _pickNewDue() async {
     final title = _quickAdd.text.trim().split("\n").first;
-    final choice =
-        await _chooseDueDate(title.isEmpty ? S.dueDate : title, _newDue);
+    final choice = await chooseDueDate(
+        context, title.isEmpty ? S.dueDate : title, _newDue);
     if (choice == null || !mounted) return;
     setState(() => _newDue = choice.date);
-  }
-
-  /// Raccourcis en un tap puis sélecteur date/heure complet.
-  /// Retourne null si annulé ; `_DueChoice(null)` si l'échéance est retirée.
-  Future<_DueChoice?> _chooseDueDate(String title, DateTime? current) async {
-    final now = DateTime.now();
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title:
-            Text("${S.dueDate} — $title", style: const TextStyle(fontSize: 16)),
-        children: [
-          SimpleDialogOption(
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.today_outlined),
-              title: Text(S.today),
-            ),
-            onPressed: () => Navigator.pop(context, "today"),
-          ),
-          SimpleDialogOption(
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.arrow_outward),
-              title: Text(S.tomorrow),
-            ),
-            onPressed: () => Navigator.pop(context, "tomorrow"),
-          ),
-          SimpleDialogOption(
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.date_range_outlined),
-              title: Text(S.inAWeek),
-            ),
-            onPressed: () => Navigator.pop(context, "week"),
-          ),
-          SimpleDialogOption(
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.calendar_month_outlined),
-              title: Text(S.chooseDate),
-            ),
-            onPressed: () => Navigator.pop(context, "custom"),
-          ),
-          if (current != null)
-            SimpleDialogOption(
-              child: ListTile(
-                dense: true,
-                leading: const Icon(Icons.event_busy),
-                title: Text(S.removeDueDate),
-              ),
-              onPressed: () => Navigator.pop(context, "clear"),
-            ),
-        ],
-      ),
-    );
-    if (choice == null || !mounted) return null;
-    switch (choice) {
-      case "today":
-        return _DueChoice(DateTime(now.year, now.month, now.day, 18));
-      case "tomorrow":
-        return _DueChoice(DateTime(now.year, now.month, now.day + 1, 9));
-      case "week":
-        final d = now.add(const Duration(days: 7));
-        return _DueChoice(DateTime(d.year, d.month, d.day, 9));
-      case "clear":
-        return const _DueChoice(null);
-    }
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current ?? now,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now.add(const Duration(days: 365 * 3)),
-      helpText: S.dueDate,
-    );
-    if (picked == null || !mounted) return null;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(current ?? now),
-    );
-    return _DueChoice(DateTime(
-      picked.year,
-      picked.month,
-      picked.day,
-      time?.hour ?? 0,
-      time?.minute ?? 0,
-    ));
   }
 
   Future<void> _editNotes(LocalItem item) async {
@@ -743,26 +705,6 @@ class _ListScreenState extends State<ListScreen> {
     }
   }
 
-  String _dueLabel(DateTime d) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(d.year, d.month, d.day);
-    final diff = day.difference(today).inDays;
-    final hh = d.hour.toString().padLeft(2, "0");
-    final mm = d.minute.toString().padLeft(2, "0");
-    switch (diff) {
-      case 0:
-        return "aujourd'hui ${d.hour == 0 && d.minute == 0 ? "" : "$hh:$mm"}"
-            .trim();
-      case 1:
-        return "demain ${d.hour == 0 && d.minute == 0 ? "" : "$hh:$mm"}".trim();
-      case -1:
-        return "hier (en retard)";
-      default:
-        return "${day.day}/${day.month}${d.hour == 0 && d.minute == 0 ? "" : " $hh:$mm"}";
-    }
-  }
-
   Future<LocalList?> _list() async {
     try {
       return await (widget.state.db.select(widget.state.db.localLists)
@@ -777,7 +719,7 @@ class _ListScreenState extends State<ListScreen> {
     final parts = <Widget>[];
     if (item.dueDate != null) {
       final overdue = item.dueDate!.isBefore(DateTime.now());
-      parts.add(Text((overdue ? "⚠ " : "📅 ") + _dueLabel(item.dueDate!),
+      parts.add(Text((overdue ? "⚠ " : "📅 ") + dueLabel(item.dueDate!),
           style: TextStyle(
               fontSize: 12,
               color: overdue ? Theme.of(context).colorScheme.error : null)));
@@ -821,10 +763,4 @@ class _ListScreenState extends State<ListScreen> {
       _newDue = null;
     });
   }
-}
-
-/// Résultat du sélecteur d'échéance : [date] null = échéance retirée.
-class _DueChoice {
-  final DateTime? date;
-  const _DueChoice(this.date);
 }

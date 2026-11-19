@@ -4,6 +4,7 @@ import "package:flutter/services.dart";
 import "../data/database.dart";
 import "../state/app_state.dart";
 import "admin_screen.dart";
+import "due_picker.dart";
 import "list_screen.dart";
 import "search_screen.dart";
 import "share_screen.dart";
@@ -21,6 +22,9 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Lists whose inline items are COLLAPSED. Items are shown by default.
   final Set<String> _collapsed = {};
   final _newList = TextEditingController();
+
+  /// Dernière liste choisie dans « Nouvelle tâche » (présélectionnée).
+  String? _lastTaskListId;
   bool _quickAddShown = false;
 
   static const _templates = {
@@ -277,6 +281,53 @@ class _HomeScreenState extends State<HomeScreen> {
         .toSet();
   }
 
+  /// Bouton ＋ de l'accueil : nouvelle tâche ou nouvelle liste.
+  Future<void> _onAddPressed() async {
+    final lists = await widget.state.db.visibleLists();
+    if (!mounted) return;
+    if (lists.isEmpty) {
+      await _promptNewList();
+      return;
+    }
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.add_task),
+            title: Text(S.newTask),
+            onTap: () => Navigator.pop(context, "task"),
+          ),
+          ListTile(
+            leading: const Icon(Icons.playlist_add),
+            title: Text(S.newList),
+            onTap: () => Navigator.pop(context, "list"),
+          ),
+        ]),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == "task") await _promptNewTask(lists);
+    if (choice == "list") await _promptNewList();
+  }
+
+  /// Nouvelle tâche depuis l'accueil : libellé, liste cible, échéance.
+  Future<void> _promptNewTask(List<LocalList> lists) async {
+    final pinned = await widget.state.db.pinnedLists();
+    if (!mounted) return;
+    final initial = lists.any((l) => l.id == _lastTaskListId)
+        ? _lastTaskListId!
+        : (pinned.isNotEmpty ? pinned.first.id : lists.first.id);
+    final result = await showDialog<_NewTask>(
+      context: context,
+      builder: (_) => _NewTaskDialog(lists: lists, initialListId: initial),
+    );
+    if (result == null || result.text.trim().isEmpty) return;
+    _lastTaskListId = result.listId;
+    await widget.state
+        .addQuickItems(result.listId, result.text, dueDate: result.due);
+  }
+
   Future<void> _promptNewList() async {
     final state = widget.state;
     if (state.featureTemplates) {
@@ -433,8 +484,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         floatingActionButton: FloatingActionButton.extended(
           icon: const Icon(Icons.add),
-          label: Text(S.newList),
-          onPressed: _promptNewList,
+          label: Text(S.addButton.replaceFirst("＋", "").trim()),
+          onPressed: _onAddPressed,
         ),
       ),
     );
@@ -837,4 +888,108 @@ class _TemplateChoice {
   final bool isTemplate;
   const _TemplateChoice.empty() : name = "", isTemplate = false;
   const _TemplateChoice.template(this.name) : isTemplate = true;
+}
+
+/// Résultat du dialogue « Nouvelle tâche ».
+class _NewTask {
+  final String text;
+  final String listId;
+  final DateTime? due;
+  const _NewTask(this.text, this.listId, this.due);
+}
+
+/// Dialogue « Nouvelle tâche » : libellé (1 ligne = 1 tâche), liste cible
+/// et échéance. Possède son contrôleur (libéré après l'animation de sortie).
+class _NewTaskDialog extends StatefulWidget {
+  final List<LocalList> lists;
+  final String initialListId;
+  const _NewTaskDialog({required this.lists, required this.initialListId});
+
+  @override
+  State<_NewTaskDialog> createState() => _NewTaskDialogState();
+}
+
+class _NewTaskDialogState extends State<_NewTaskDialog> {
+  final _text = TextEditingController();
+  late String _listId = widget.initialListId;
+  DateTime? _due;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDue() async {
+    final first = _text.text.trim().split("\n").first;
+    final choice =
+        await chooseDueDate(context, first.isEmpty ? S.newTask : first, _due);
+    if (choice != null && mounted) setState(() => _due = choice.date);
+  }
+
+  void _submit() =>
+      Navigator.pop(context, _NewTask(_text.text, _listId, _due));
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final addLabel = S.addButton.replaceFirst("＋", "").trim();
+    return AlertDialog(
+      title: Text(S.newTask),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _text,
+                autofocus: true,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(hintText: S.newTaskHint),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _listId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: S.listTitleFallback,
+                  prefixIcon: const Icon(Icons.list_alt_outlined),
+                  isDense: true,
+                ),
+                items: [
+                  for (final l in widget.lists)
+                    DropdownMenuItem(
+                      value: l.id,
+                      child: Text(l.title,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _listId = v);
+                },
+              ),
+              const SizedBox(height: 12),
+              InputChip(
+                avatar: Icon(_due == null ? Icons.event_outlined : Icons.event,
+                    size: 18,
+                    color: _due == null ? scheme.outline : scheme.primary),
+                label: Text(_due == null ? S.setDueDate : dueLabel(_due!)),
+                onPressed: _pickDue,
+                onDeleted: _due == null ? null : () => setState(() => _due = null),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: Text(S.cancel)),
+        FilledButton(onPressed: _submit, child: Text(addLabel)),
+      ],
+    );
+  }
 }
