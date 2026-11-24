@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart" show kIsWeb;
 import "package:material_ui/material_ui.dart";
 
 import "../data/api_client.dart";
@@ -24,7 +25,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _server.text = widget.state.api.baseUrl;
+    // Web build: the webapp is served behind the same origin as the API
+    // (reverse proxy), so default the server URL to the page origin.
+    final saved = widget.state.api.baseUrl;
+    _server.text = saved.isEmpty && kIsWeb ? Uri.base.origin : saved;
   }
 
   @override
