@@ -18,6 +18,7 @@ import urllib.error
 import urllib.request
 
 URL = os.environ.get("CHECKLISTS_URL", "http://localhost:8000")
+TIMEOUT = float(os.environ.get("CHECKLISTS_TIMEOUT", "30"))
 KEY = os.environ.get("CHECKLISTS_API_KEY", "")
 KEY_FILE = os.environ.get("CHECKLISTS_API_KEY_FILE", "")
 
@@ -58,7 +59,7 @@ def _api(method: str, path: str, body: dict | None = None) -> str:
         headers={"Authorization": f"Bearer {_load_key()}", "Content-Type": "application/json"},
         method=method,
     )
-    with urllib.request.urlopen(req) as resp:
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
         return resp.read().decode()
 
 
@@ -105,7 +106,33 @@ TOOLS = [
             "required": ["list_id", "item_id"],
         },
     },
+    {
+        "name": "update_item",
+        "description": (
+            "Edit an item's text, notes, due date or recurrence. Only the fields given are "
+            "changed. Cannot check/uncheck (use check_item), delete, or clear a due date."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "list_id": {"type": "string"},
+                "item_id": {"type": "string"},
+                "label": {"type": "string", "minLength": 1, "maxLength": 2000},
+                "notes": {"type": "string"},
+                "due_date": {
+                    "type": "string",
+                    "description": "ISO 8601 date-time with offset, e.g. 2026-11-28T09:00:00+01:00",
+                },
+                "recurrence": {"type": "string", "enum": ["none", "daily", "weekly", "monthly"]},
+            },
+            "required": ["list_id", "item_id"],
+        },
+    },
 ]
+
+# update_item whitelist: `done`, position, parent and assignee are never
+# forwarded, so completion stays on check_item.
+UPDATE_FIELDS = ("label", "notes", "due_date", "recurrence")
 
 
 def _handle(name: str, args: dict) -> str:
@@ -122,6 +149,11 @@ def _handle(name: str, args: dict) -> str:
             f"/lists/{args['list_id']}/items/{args['item_id']}",
             {"done": args.get("done", True)},
         )
+    if name == "update_item":
+        patch = {k: args[k] for k in UPDATE_FIELDS if args.get(k) is not None}
+        if not patch:
+            raise ValueError("update_item needs at least one of: " + ", ".join(UPDATE_FIELDS))
+        return _api("PATCH", f"/lists/{args['list_id']}/items/{args['item_id']}", patch)
     raise ValueError(f"Unknown tool: {name}")
 
 
